@@ -1,23 +1,26 @@
-from pathlib import Path
-from zipfile import ZipFile
-import pandas as pd
-import geopandas as gpd
 import xml.etree.ElementTree as ET
+from pathlib import Path
+from typing import Union
+from zipfile import ZipFile
+
+import geopandas as gpd
+import pandas as pd
 from shapely.geometry import Polygon
 from tqdm import tqdm
 
 from const import (
-    ZIP_DIR,
     EXTRACT_XML_DIR,
-    OUTPUT_DIR,
-    MERGE_FILE_PATTERN,
     FILTER_POLYGON_PATH,
+    MERGE_FILE_PATTERN,
     MERGED_SHAPEFILE_NAME,
+    OUTPUT_DIR,
+    ZIP_DIR,
 )
 
 
 def unzip_all_zipfiles(zip_dir: Path, output_dir: Path) -> None:
     # Iterate over all files in the specified directory
+    output_dir.mkdir(exist_ok=True)
     for zip_file in tqdm(zip_dir.glob("*.zip")):
         with ZipFile(zip_file, "r") as zip_ref:
             zip_ref.extractall(output_dir)
@@ -35,7 +38,7 @@ def merge_all_xmls(xml_dir: Path) -> gpd.GeoDataFrame:
     return gpd.GeoDataFrame(merged_df, geometry="geometry")
 
 
-def extract_polygon_info(xml_file: str) -> gpd.GeoDataFrame:
+def extract_polygon_info(xml_file: Union[Path, str]) -> gpd.GeoDataFrame:
     # Parse the XML file
     tree = ET.parse(xml_file)
     root = tree.getroot()
@@ -74,7 +77,8 @@ def extract_polygon_info(xml_file: str) -> gpd.GeoDataFrame:
     return gpd.GeoDataFrame(polygons)
 
 
-def create_shapefile(gdf: gpd.GeoDataFrame, output_file: str) -> None:
+def create_shapefile(gdf: gpd.GeoDataFrame, output_file: Path) -> None:
+    output_file.parent.mkdir(exist_ok=True)
     gdf.to_file(output_file, driver="ESRI Shapefile")
 
 
