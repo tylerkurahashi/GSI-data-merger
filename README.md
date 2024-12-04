@@ -14,5 +14,7 @@
 
 ## Caution
 
+- Currently only for "BldA" type polygons.
+
 - Merging numbers of file consumes much time. (I will try to optimize when I feel to do so.)</br>
 (174 files took around an hour)
