@@ -1,0 +1,10 @@
+numpy
+pandas
+geopandas
+tifffile
+rasterio
+matplotlib
+awscli
+
+# misc
+ipykernel
