@@ -20,7 +20,7 @@ from const import (
 
 def unzip_all_zipfiles(zip_dir: Path, output_dir: Path) -> None:
     # Iterate over all files in the specified directory
-    output_dir.mkdir(exist_ok=True)
+    output_dir.mkdir(exist_ok=True, parents=True)
     for zip_file in tqdm(zip_dir.glob("*.zip")):
         with ZipFile(zip_file, "r") as zip_ref:
             zip_ref.extractall(output_dir)
@@ -74,15 +74,19 @@ def extract_polygon_info(xml_file: Union[Path, str]) -> gpd.GeoDataFrame:
             del polygon_info["coordinates"]
 
         polygons.append(polygon_info)
-    return gpd.GeoDataFrame(polygons)
+
+    gdf = gpd.GeoDataFrame(polygons)
+    gdf.set_geometry("geometry", inplace=True, crs="EPSG:4326")
+    return gdf
 
 
 def create_shapefile(gdf: gpd.GeoDataFrame, output_file: Path) -> None:
-    output_file.parent.mkdir(exist_ok=True)
+    output_file.parent.mkdir(exist_ok=True, parents=True)
     gdf.to_file(output_file, driver="ESRI Shapefile")
+    gdf.to_file(output_file.with_suffix(".geojson"), driver="GeoJSON")
 
 
-def filter_with_shp(gdf: list[dict], filter_polygon_path: Path):
+def filter_with_shp(gdf: list[dict], filter_polygon_path: Union[Path, None]):
     gdf.set_geometry("geometry", inplace=True, crs="EPSG:4326")
     spatial_index = gdf.sindex
 
@@ -96,19 +100,21 @@ def filter_with_shp(gdf: list[dict], filter_polygon_path: Path):
     return precise_matches
 
 
+
 def main():
-    print("Unzipping...")
-    unzip_all_zipfiles(ZIP_DIR, EXTRACT_XML_DIR)
+    for dir in ZIP_DIR.glob("*"):
+        print(f"Unzipping {dir.name}...")
+        unzip_all_zipfiles(dir, EXTRACT_XML_DIR / dir.name)
 
-    print("Extract and Merge all xmls...")
-    gdf = merge_all_xmls(EXTRACT_XML_DIR)
+        print("Extract and Merge all xmls...")
+        gdf = merge_all_xmls(EXTRACT_XML_DIR / dir.name)
 
-    if FILTER_POLYGON_PATH is not None:
-        print("filtering...")
-        gdf = filter_with_shp(gdf, FILTER_POLYGON_PATH)
+        if FILTER_POLYGON_PATH is not None:
+            print("filtering...")
+            gdf = filter_with_shp(gdf, FILTER_POLYGON_PATH)
 
-    print("Saving...")
-    create_shapefile(gdf, OUTPUT_DIR / MERGED_SHAPEFILE_NAME)
+        print("Saving...")
+        create_shapefile(gdf, OUTPUT_DIR / dir.name / MERGED_SHAPEFILE_NAME)
 
 
 if __name__ == "__main__":

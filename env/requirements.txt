@@ -5,6 +5,7 @@ tifffile
 rasterio
 matplotlib
 awscli
+tqdm
 
 # misc
 ipykernel
