@@ -29,9 +29,24 @@ def unzip_all_zipfiles(zip_dir: Path, output_dir: Path) -> None:
 def merge_all_xmls(xml_dir: Path) -> gpd.GeoDataFrame:
     df_list = []
 
-    for xml_file in tqdm(xml_dir.glob(f"*{MERGE_FILE_PATTERN}*.xml")):
-        polygons = extract_polygon_info(xml_file)
-        df_list.append(polygons)
+    for xml_file in tqdm(xml_dir.rglob(f"*{MERGE_FILE_PATTERN}*.xml")):
+        # Skip hidden files and system files
+        if xml_file.name.startswith('.'):
+            continue
+
+        # Skip if not a file
+        if not xml_file.is_file():
+            continue
+
+        try:
+            polygons = extract_polygon_info(xml_file)
+            df_list.append(polygons)
+        except ET.ParseError as e:
+            print(f"Warning: Failed to parse {xml_file}: {e}")
+            continue
+        except Exception as e:
+            print(f"Warning: Error processing {xml_file}: {e}")
+            continue
 
     merged_df = pd.concat(df_list, ignore_index=True)
 
@@ -102,7 +117,10 @@ def filter_with_shp(gdf: list[dict], filter_polygon_path: Union[Path, None]):
 
 
 def main():
+    print(list(ZIP_DIR.glob("*")))
     for dir in ZIP_DIR.glob("*"):
+        if dir.name == ".DS_Store":
+            continue
         print(f"Unzipping {dir.name}...")
         unzip_all_zipfiles(dir, EXTRACT_XML_DIR / dir.name)
 
