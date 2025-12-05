@@ -22,6 +22,7 @@ def unzip_all_zipfiles(zip_dir: Path, output_dir: Path) -> None:
     # Iterate over all files in the specified directory
     output_dir.mkdir(exist_ok=True, parents=True)
     for zip_file in tqdm(zip_dir.glob("*.zip")):
+        print(f"Unzipping {zip_file.name}...")
         with ZipFile(zip_file, "r") as zip_ref:
             zip_ref.extractall(output_dir)
 
@@ -31,12 +32,14 @@ def merge_all_xmls(xml_dir: Path) -> gpd.GeoDataFrame:
 
     for xml_file in tqdm(xml_dir.rglob(f"*{MERGE_FILE_PATTERN}*.xml")):
         # Skip hidden files and system files
-        if xml_file.name.startswith('.'):
+        if xml_file.name.startswith("."):
             continue
 
         # Skip if not a file
         if not xml_file.is_file():
             continue
+
+        print(f"Processing {xml_file.name}...")
 
         try:
             polygons = extract_polygon_info(xml_file)
@@ -70,9 +73,7 @@ def extract_polygon_info(xml_file: Union[Path, str]) -> gpd.GeoDataFrame:
     for blda in root.findall(".//fgd:BldA", namespaces):
         polygon_info = {}
         polygon_info["type"] = (
-            blda.find(".//fgd:type", namespaces).text
-            if blda.find(".//fgd:type", namespaces) is not None
-            else None
+            blda.find(".//fgd:type", namespaces).text if blda.find(".//fgd:type", namespaces) is not None else None
         )
 
         # Extract polygon coordinates
@@ -80,10 +81,7 @@ def extract_polygon_info(xml_file: Union[Path, str]) -> gpd.GeoDataFrame:
         for pos in pos_list:
             coords = pos.text.strip().split()
             # Create a list of tuples for the coordinates
-            polygon_info["coordinates"] = [
-                (float(coords[i + 1]), float(coords[i]))
-                for i in range(0, len(coords), 2)
-            ]
+            polygon_info["coordinates"] = [(float(coords[i + 1]), float(coords[i])) for i in range(0, len(coords), 2)]
             # Create a shapely Polygon object
             polygon_info["geometry"] = Polygon(polygon_info["coordinates"])
             del polygon_info["coordinates"]
@@ -97,8 +95,15 @@ def extract_polygon_info(xml_file: Union[Path, str]) -> gpd.GeoDataFrame:
 
 def create_shapefile(gdf: gpd.GeoDataFrame, output_file: Path) -> None:
     output_file.parent.mkdir(exist_ok=True, parents=True)
-    gdf.to_file(output_file, driver="ESRI Shapefile")
-    gdf.to_file(output_file.with_suffix(".geojson"), driver="GeoJSON")
+
+    gdf = gdf.reset_index(drop=True)
+
+    if "type" in gdf.columns:
+        gdf["type"] = gdf["type"].fillna("")
+
+    gpkg_file = output_file.with_suffix(".gpkg")
+    print(f"Saving to GeoPackage: {gpkg_file.name}...")
+    gdf.to_file(gpkg_file, driver="GPKG")
 
 
 def filter_with_shp(gdf: list[dict], filter_polygon_path: Union[Path, None]):
@@ -115,11 +120,11 @@ def filter_with_shp(gdf: list[dict], filter_polygon_path: Union[Path, None]):
     return precise_matches
 
 
-
 def main():
-    print(list(ZIP_DIR.glob("*")))
+    # print(list(ZIP_DIR.glob("*")))
     for dir in ZIP_DIR.glob("*"):
         if dir.name == ".DS_Store":
+            print(f"Skipping {dir.name}...")
             continue
         print(f"Unzipping {dir.name}...")
         unzip_all_zipfiles(dir, EXTRACT_XML_DIR / dir.name)
